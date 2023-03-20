@@ -1,15 +1,15 @@
 import string
 
 tokens = {
-    "Keywords": ["while", "if", "else", "do", "jump", "break"],
+    "Keywords": ["while", "if", "else", "do", "jump", "break", "declare","input","print","return","def"],
     "AddOperators": ["+", "-"],
     "MulOperators": ["*", "//"],
     "RelOperators": ["==", ">=", "<", "<>", "!="],
     "Assignment": ["="],
     "Delimiters": [",", ".", ";"],
-    "GroupSymbols": ["(", ")", "{", "}", "[", "]", "#{", "#}"],
+    "GroupSymbols": ["(", ")", "[", "]", "#{", "#}"],
     "Comments": ["#$"],
-    "Underscore" : ["_"]
+    "Underscore" : ["_"],
 }
 
 
@@ -59,13 +59,17 @@ class Lex:
 
             if self.current_char in ["*", "/"]:
                 char2 = self.file_pointer.read(1)
-                if (self.current_char == "/" and char2 == "/"):
-                    recognized_string = self.current_char + char2
-                    family = "MulOperators"
-                    line_number = self.current_line
-                    self.get_next_char()
-                    self.get_next_char()
-                    return Token(recognized_string, family, line_number)
+                if (self.current_char == "/"):
+                    if (char2 == "/"):
+                        recognized_string = self.current_char + char2
+                        family = "MulOperators"
+                        line_number = self.current_line
+                        self.get_next_char()
+                        self.get_next_char()
+                        return Token(recognized_string, family, line_number)
+                        
+                    else:
+                        raise SyntaxError(f"Expected '/', found {self.current_token.recognized_string}")
                 else:
                     recognized_string = self.current_char
                     family = "MulOperators"
@@ -112,13 +116,15 @@ class Lex:
                     char2 = self.file_pointer.read(1)
                     if (char2.isdigit()):
                         recognized_string += char2
+                    if (char2 == "."):
+                        raise SyntaxError(f"Expected integer, found floating point")
                     self.get_next_char()
-                family = "Numbers"
+                family = "Integer"
                 line_number = self.current_line
                 return Token(recognized_string, family, line_number)
 
             if self.current_char.isalpha():
-                recognized_string = self.current_char 
+                recognized_string = "" 
                 while self.current_char.isalnum() or self.current_char == "_":
                     recognized_string += self.current_char
                     self.get_next_char()
@@ -146,7 +152,9 @@ class Lex:
                     self.get_next_char()
                     self.get_next_char()
                     return Token(recognized_string, family, line_number)
-                       
+              
+            if(self.current_char.isspace):
+                self.get_next_char()
 
 
 def main():
@@ -158,4 +166,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main()      
