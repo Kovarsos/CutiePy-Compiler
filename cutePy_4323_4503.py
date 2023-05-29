@@ -3,7 +3,9 @@
 
 import string
 import sys
-import pdb
+import logging as l
+from typing import List
+
 
 tokens = {
     "Keywords": ["while", "if", "else", "do", "or", "and", "not","#declare","input","print","return","def"],
@@ -11,12 +13,15 @@ tokens = {
     "MulOperators": ["*", "//"],
     "RelOperators": ["==", ">=", "<",">","<=", "<>", "!="],
     "Assignment": ["="],
-    "Delimiters": [",", ".", ";"],
+    "Delimiters": [",", ".", ";", ":"],
     "GroupSymbols": ["(", ")", "[", "]", "#{", "#}"],
     "Comments": ["#$"],
     "Underscore" : ["_"],
 }
 
+quadnum = 1
+temp_counter = 1
+quadList = []
 
 class Token:
     def __init__(self, recognized_string, family, line_number):
@@ -30,7 +35,8 @@ class Lex:
         self.current_line = 1
         self.current_char = None
         self.file_pointer = None
-        self.current_position = None
+        self.current_position = 0
+        self.recognized_string = ""
 
         self.open_file()
 
@@ -42,37 +48,41 @@ class Lex:
         self.file_pointer.close()
 
     def get_next_char(self):
-        position_old = self.current_position
         self.current_char = self.file_pointer.read(1)
-        position_new = self.file_pointer.tell()
+        
         if self.current_char == '\n':
             self.current_line += 1
-        if position_old == position_new:
+        if self.current_char == '':
             return Token("", "EOF", self.current_line)
+        return self.current_char
 
     def get_next_token(self):
+        
         while self.current_char is not None:
-            if self.current_char.isspace():
+
+            if self.current_char in tokens["AddOperators"]:
+                l.debug("Found a AddOperator in: "+ self.current_char)
+                recognized_string = self.current_char
+                family = "AddOperators"
+                line_number = self.current_line
                 self.get_next_char()
-                continue
+                
+                return Token(recognized_string, family, line_number)
 
             if self.current_char in tokens["GroupSymbols"]:
+                l.debug("Found a GroupSymbol in: "+ self.current_char)
                 recognized_string = self.current_char
                 family = "GroupSymbols"
                 line_number = self.current_line
                 self.get_next_char()
                 return Token(recognized_string, family, line_number)
 
-            if self.current_char in tokens["AddOperators"]:
-                recognized_string = self.current_char
-                family = "AddOperators"
-                line_number = self.current_line
-                self.get_next_char()
-                return Token(recognized_string, family, line_number)
 
             if self.current_char in ["*", "/"]:
+                l.debug("Found a * or / in: "+ self.current_char)
+                
                 char2 = self.file_pointer.read(1)
-                if char2 == "/":
+                if (self.current_char == "/" and char2 == "/"):
                     recognized_string = self.current_char + char2
                     family = "MulOperators"
                     line_number = self.current_line
@@ -87,6 +97,8 @@ class Lex:
                     return Token(recognized_string, family, line_number)
 
             if self.current_char in tokens["Delimiters"]:
+                l.debug("Found a Delimiter in: "+ self.current_char)
+                
                 recognized_string = self.current_char
                 family = "Delimiters"
                 line_number = self.current_line
@@ -94,6 +106,8 @@ class Lex:
                 return Token(recognized_string, family, line_number)
 
             if (self.current_char == "="):
+                l.debug("Found a = in: "+ self.current_char)
+                
                 recognized_string = self.current_char
                 char2 = self.file_pointer.read(1)
                 if (char2 == "="):
@@ -111,33 +125,36 @@ class Lex:
                     return Token(recognized_string, family, line_number)
 
             if (self.current_char == ">"):
+                l.debug("Found a RelOperator: "+ self.current_char)
+                
                 recognized_string = self.current_char
-                char2 = self.file_pointer.read(1)
-                if (char2 == "="):
-                    recognized_string += char2
-                    self.get_next_char()
+                self.get_next_char()
+                if (self.current_char == "="):
+                    recognized_string += self.current_char
                 family = "RelOperators"
                 line_number = self.current_line
                 self.get_next_char()
                 return Token(recognized_string, family, line_number)
 
             if (self.current_char == "<"):
+                l.debug("Found a RelOperator: "+ self.current_char)
+                
                 recognized_string = self.current_char
-                char2 = self.file_pointer.read(1)
-                if (char2 == "=" or ">"):
-                    recognized_string += char2
-                    self.get_next_char()
+                self.get_next_char()
+                if (self.current_char == "=" or self.current_char == ">"):
+                    recognized_string += self.current_char
                 family = "RelOperators"
                 line_number = self.current_line
                 self.get_next_char()
                 return Token(recognized_string, family, line_number)
 
             if (self.current_char == "!"):
+                l.debug("Found a Delimiter in: "+ self.current_char)
+                
                 recognized_string = self.current_char
-                char2 = self.file_pointer.read(1)
-                if (char2 == "="):
-                    recognized_string += char2
-                    self.get_next_char()
+                self.get_next_char
+                if (self.current_char == "="):
+                    recognized_string += self.current_char
                     family = "RelOperators"
                     line_number = self.current_line
                     self.get_next_char()
@@ -146,11 +163,16 @@ class Lex:
                     raise SyntaxError(f"Expected '=', found something else")
 
             if self.current_char.isdigit():
+                l.debug("Found an Integer in: ."+ self.current_char + ".")
+                
                 recognized_string = self.current_char
+                self.get_next_char()
                 while self.current_char is not None and not self.current_char.isspace():
-                    char2 = self.file_pointer.read(1)
-                    if (char2.isdigit()):
-                        recognized_string += char2
+                    if self.current_char == ";":
+                        break
+                    self.get_next_char()
+                    if (self.current_char.isdigit()):
+                        recognized_string += self.current_char
                     else:
                         raise SyntaxError(f"Expected integer, found something else. If you're trying to set an ID, it must begin with a letter")
                     self.get_next_char()
@@ -159,31 +181,29 @@ class Lex:
                 return Token(recognized_string, family, line_number)
 
             if self.current_char.isalpha():
-                recognized_string = self.current_char
-                while self.current_char is not None and (self.current_char.isalpha() or self.current_char.isdigit() or self.current_char == "_"):
-                    recognized_string += self.current_char
-                    self.current_char = self.get_next_char()
+                self.recognized_string = self.current_char
+                self.get_next_char()
 
-                if recognized_string in tokens["Keywords"]:
-                    family = "Keyword"
+                while not self.current_char.isspace():
+                    if (self.current_char.isalpha() or self.current_char.isdigit() or self.current_char == "_"):
+                      
+                        self.recognized_string += self.current_char
+                        self.current_char = self.get_next_char()
+                    else:
+                        break
+
+                if self.recognized_string in tokens["Keywords"]:
+                    
+                    l.debug("...Found Family Keywords in ." + self.recognized_string + ".")
+                    family = "Keywords"
+
                 else:
+                    
+                    l.debug("...Found Family ID in ." + self.recognized_string + ".")
                     family = "ID"
 
                 line_number = self.current_line
-                return Token(recognized_string, family, line_number)
-
-            if self.current_char.isalpha():
-                recognized_string = self.current_char
-                while self.get_next_char() is not None and (self.current_char.isalpha() or self.current_char.isdigit() or self.current_char == "_"):
-                    recognized_string += self.current_char
-                    self.current_char = self.get_next_char()
-
-                family = "ID"
-                if recognized_string in tokens["Keywords"]:
-                    family = "Keyword"
-
-                line_number = self.current_line
-                return Token(recognized_string, family, line_number)
+                return Token(self.recognized_string, family, line_number)
 
             if (self.current_char == "_"):
                 recognized_string = self.current_char
@@ -216,344 +236,766 @@ class Lex:
                     pass
 
             if (self.current_char == "#"):
+                l.debug("...Found #")
                 recognized_string = self.current_char
-                char2 = self.file_pointer.read(1)
-                if (char2 == "{"):
-                    recognized_string += char2
-                    while self.get_next_char():
-                        newchar = self.file_pointer.read(1)
-                        recognized_string += newchar
+                self.get_next_char()
+                if (self.current_char == "{" or self.current_char == "}"):
+                    recognized_string += self.current_char
+                    l.debug("...Found a GroupSymbol in: "+ recognized_string)
+                    family = "GroupSymbols"
+                    line_number = self.current_line
                     self.get_next_char()
-                    if (newchar == "#"):
-                        char3 = self.file_pointer.read(1)
-                        if (char3 == "}"):
-                            family = "Declaration"
-                            line_number = self.current_line
-                            return Token(recognized_string, family, line_number)
-                    if not newchar:
-                        raise SyntaxError(f"Unfinished declaration in line {self.current_token.line_number}")
-                elif (char2 != "{"):
-                    str1 = self.file_pointer.read(7)
-                    if (str1 == "declare"):
-                        recognized_string = self.get_next_char() + str1
+                    return Token(recognized_string, family, line_number)
+
+                elif (self.current_char == "$"):
+                    l.debug("...Found start of comment")
+                    comment = ""
+                    while self.current_char is not None:
+                        self.get_next_char()
+                        comment += self.current_char
+                        if self.current_char == "#":
+                            self.get_next_char()
+                            if self.current_char == "$":
+                                l.debug("...Found end of comment, the comment was: " + comment)
+                                self.get_next_char()
+                                break
+                            else:
+                                continue
+
+                elif (self.current_char.isalpha()):
+                    recognized_string = self.current_char
+                    for i in range(6):
+                        self.get_next_char()
+                        recognized_string += self.current_char
+                    if (recognized_string == "declare"):
+                        l.debug("...Found declaration with current string ." + recognized_string + ".")
                         family = "Declaration"
                         line_number = self.current_line
                         self.get_next_char()
-                        self.get_next_char()
-                        self.get_next_char()
-                        self.get_next_char()
-                        self.get_next_char()
-                        self.get_next_char()
-                        self.get_next_char()
                         return Token(recognized_string, family, line_number)
-                elif (char2 == "$"):
-                    recognized_string = self.get_next_char() + char2
-                    while self.get_next_char():
-                        newchar = self.file_pointer.read(1)
-                        recognized_string += newchar
-                    self.get_next_char()
-                    if (newchar == "#"):
-                        char3 = self.file_pointer.read(1)
-                        if (char3 == "$"):
-                            family = "Comment"
-                            line_number = self.current_line
-                            return Token(recognized_string, family, line_number)
-                    if not newchar:
-                        raise SyntaxError(f"Unfinished Comment in line {self.current_token.line_number}")
-                elif (char2 != "{" | "$"):
-                    if not newchar:
-                        raise SyntaxError(f"Unfinished comment or declaration in line {self.current_token.line_number}")
-                else:
-                    raise SyntaxError(f"Unexpected use of # in line {self.current_token.line_number}")
+                    else: 
+                        raise SyntaxError("Unfinished declaration")
 
+
+            if self.current_char.isspace():
+                l.debug("\n")
+                self.get_next_char()
+                self.recognized_string = " "
+                continue
 
 class Parser:
     def __init__(self, filename):
         self.filename = filename
         self.lex = Lex(filename)
         self.current_token = None
+        self.quad = Quad(quadnum, "_","_","_","_")
         self.get_next_token()
 
     def parse(self):
         self.start_rule()
-        print(self.current_token.recognized_string)
-        while self.current_token is not None:
-            raise SyntaxError(f"Unexpected token {self.current_token.recognized_string}")
-
+        
     def get_next_token(self):
        self.current_token = self.lex.get_next_token()
 
-    def match(self, family):
-        if self.current_token is not None and self.current_token.family == family:
-            token = self.current_token
-            self.current_token = self.lex.get_next_token()
-            return token
-        else:
-            raise SyntaxError(f"Expected {family} but found {self.current_token.family}")
-
     def start_rule(self):
+        l.debug("...Went in on Start Rule with current token " + self.current_token.recognized_string)
         self.def_main_part()
         self.call_main_part()
         
     def def_main_part(self):
-        while self.current_token is not None and self.current_token.recognized_string == "def":
+        l.debug("...Went in on def_main_part with current token " + self.current_token.recognized_string)
+        while self.current_token.recognized_string == "def":
             self.def_main_function()
 
     def def_main_function(self):
-        self.match("Keywords")
-        self.match("ID") 
-        self.match("GroupSymbols")
-        self.match("GroupSymbols")
-        self.match("Delimiters")
-        self.match("GroupSymbols")
-        self.declarations()
-        while self.current_token is not None and self.current_token.recognized_string == "def":
-            self.def_function()
-        self.statements()
-        self.match("GroupSymbols")
+        l.debug("...Went in on def_main_function with current token " + self.current_token.recognized_string)
+        if (self.current_token.recognized_string == "def"):
+            self.get_next_token()
+            l.debug("...Matching ID with current token " + self.current_token.recognized_string)
+
+            if (self.current_token.family == "ID"):
+                id_token = self.current_token.recognized_string
+                self.quad.genquad("begin_block", id_token, "_", "_")
+                self.get_next_token()
+
+                l.debug("...Matching GroupSymbols with current token " + self.current_token.recognized_string)
+                if (self.current_token.recognized_string == "("):
+                    self.get_next_token()
+
+                    l.debug("...Matching GroupSymbols with current token " + self.current_token.recognized_string)
+                    if (self.current_token.recognized_string == ")"):
+                        self.get_next_token()
+
+                        l.debug("...Matching Delimiters with current token " + self.current_token.recognized_string)
+                        if (self.current_token.recognized_string == ":"):
+                            self.get_next_token()
+
+                            l.debug("...Found start of block with current token " + self.current_token.recognized_string)
+                            if (self.current_token.recognized_string == "#{"):
+                                self.get_next_token()
+                                self.declarations()
+                                while self.current_token is not None and self.current_token.recognized_string == "def":
+                                    l.debug("...Found new function with current token  " + self.current_token.recognized_string)
+                                    self.def_function()
+                                self.statements()
+                                l.debug("...Found end of block with current token " + self.current_token.recognized_string)
+                                if (self.current_token.recognized_string == "#}"):
+                                    self.quad.genquad("end_block",id_token,"_","_")
+                                    self.get_next_token()
+                                else:
+                                    raise SyntaxError(f"Expected end of declaration but found " + self.current_token.family + "in line " + self.current_token.current_line)
+                            else:
+                                raise SyntaxError(f"Expected start of declaration but found " + self.current_token.family + "in line " + self.current_token.current_line)
+                        else:
+                            raise SyntaxError(f"Expected : but found " + self.current_token.family + "in line " + self.current_token.current_line)
+                    else:
+                        raise SyntaxError(f"Expected ) but found " + self.current_token.family + "in line " + self.current_token.current_line)     
+                else:
+                    raise SyntaxError(f"Expected ( but found " + self.current_token.family + "in line " + self.current_token.current_line)   
+            else:
+                raise SyntaxError(f"Expected ID but found " + self.current_token.family + "in line " + self.current_token.current_line)  
+        else:
+            raise SyntaxError(f"Expected def but found " + self.current_token.family + "in line " + self.current_token.current_line)
+
 
     def def_function(self):
-        self.match("Keywords")
-        self.match("ID")
-        self.match("GroupSymbols")
-        self.id_list()
-        self.match("GroupSymbols")
-        self.match("Delimiters")
-        self.match("GroupSymbols")
-        self.declarations()
-        while self.current_token is not None and self.current_token.recognized_string == "def":
-            self.def_function()
-        self.statements()
-        self.match("GroupSymbols")
+        l.debug("...Matching Keywords")
+        if (self.current_token.recognized_string == "def"):
+            self.get_next_token()
+
+            l.debug("...Matching ID")
+            if (self.current_token.family == "ID"):
+                id_token = self.current_token.recognized_string
+                self.quad.genquad("begin_block",id_token,"_","_")
+                self.get_next_token()
+
+                l.debug("...Matching GroupSymbols")
+                if (self.current_token.recognized_string == "("):
+                    self.get_next_token()
+
+                    self.id_list()
+
+                    l.debug("...Matching GroupSymbols")
+                    if (self.current_token.recognized_string == ")"):
+                        self.get_next_token()
+
+                        l.debug("...Matching Delimiters")
+                        if (self.current_token.recognized_string == ":"):
+                            self.get_next_token()
+
+                            l.debug("...Matching GroupSymbols")
+                            if (self.current_token.recognized_string == "#{"):
+                                self.current_token = self.get_next_token()
+                                self.declarations()
+                                while self.current_token is not None and self.current_token.recognized_string == "def":
+                                    self.def_function()
+                                self.statements()
+                                if (self.current_token.recognized_string == "#}"):
+                                    self.quad.genquad("end_block",id_token,"_","_")
+                                    self.get_next_token()
+
+                                else:
+                                    raise SyntaxError(f"Expected" + "#} but found " +self.current_token.family + "in line" + self.current_token.current_line)
+                            else:
+                                raise SyntaxError(f"Expected" + "#{ but found " +self.current_token.family+ "in line" + self.current_token.current_line)
+                        else:
+                            raise SyntaxError(f"Expected :, but found " +self.current_token.family+ "in line" + self.current_token.current_line)
+                    else:
+                        raise SyntaxError(f"Expected ), but found " +self.current_token.family+ "in line" + self.current_token.current_line)     
+                else:
+                    raise SyntaxError(f"Expected ( but found " +self.current_token.family+ "in line" + self.current_token.current_line)   
+            else:
+                raise SyntaxError(f"Expected ID, but found " + self.current_token.family+ "in line" + self.current_token.current_line)   
+        else:
+            raise SyntaxError(f"Expected def statement, but found " +self.current_token.family+ "in line" + self.current_token.current_line)       
 
     def declarations(self):
+        l.debug("...Went in on declarations")
         while self.current_token is not None and self.current_token.family == "Declaration":
             self.declaration_line()
 
     def declaration_line(self):
-        self.match("Declaration")
-        self.id_list()
+        l.debug("...Parsing through the declaration line")
+        if (self.current_token.family == "Declaration"):
+            self.get_next_token()
+            self.id_list()
+        else: 
+            raise SyntaxError(f"Expected Declaration, but found " +self.current_token.family)
 
     def statements(self):
+        l.debug("...Went in on statements")
         self.statement()
-        while self.current_token is not None and self.current_token.family == "Keyword":
+        while self.current_token is not None and (self.current_token.family == "ID" or self.current_token.family == "Keywords"):
             self.statement()
     
     def statement(self):
+        l.debug("...Trying to understand if its a simple or structured statement")
         if self.current_token.recognized_string in ["print", "return"] or self.current_token.family == "ID":
             self.simple_statement()
         elif self.current_token.recognized_string in ["while", "if"]:
             self.structured_statement()
         else:
-            raise SyntaxError("Unknown Keyword or Statement")
+            raise SyntaxError("Unknown keyword or improper statement in line "+ self.current_line)
 
     def simple_statement(self):
+        l.debug("...Simple Statement found")
         if self.current_token.family == "ID":
+            l.debug("...Found ID with current token " + self.current_token.recognized_string)
             self.assignment_stat()
         elif self.current_token.recognized_string == "print":
+            l.debug("...Found print function with current token " + self.current_token.recognized_string)
             self.print_stat()
         elif self.current_token.recognized_string == "return":
+            l.debug("...Found return function with current token " + self.current_token.recognized_string)
             self.return_stat()
 
     def structured_statement(self):
+        l.debug("...Structured Statement found")
         if self.current_token.recognized_string == "while":
+            l.debug("...Found while function with current token " + self.current_token.recognized_string)
             self.while_stat()
         elif self.current_token.recognized_string == "if":
+            l.debug("...Found if function with current token " + self.current_token.recognized_string)
             self.if_stat()
 
     def assignment_stat(self):
-        self.match("ID")
-        self.match("Assignment")
-        self.match("GroupSymbols")
-        if self.current_token.family == "Keywords":
-            raise SyntaxError(f"Cannot assign a keyword as a value '{self.current_token.recognized_string}'")
-        else:
-            if self.current_token.family == "Integer":
-                self.match("Integer")
-                self.match("GroupSymbols")
-                if self.current_token.recognized_string == "input":
-                    self.match("Keywords")
-                    self.match("GroupSymbols")
-                    self.match("GroupSymbols")
-                    self.match("GroupSymbols")
-                    self.match("Delimeters")
-                else: 
-                    raise SyntaxError(f"Expected input'")
-            else:
-                self.expression()
-                self.match("Delimeters")
+        l.debug("...Assiginment function detected, matching ID with current token "+self.current_token.recognized_string)
+        if self.current_token.family == "ID":
+            self.get_next_token()
+        
+            l.debug("...Matching Assignment with current token "+self.current_token.recognized_string)
+            if self.current_token.family == "Assignment":
+                self.get_next_token()
+            
+                if self.current_token.family == "Keywords":
+                    raise SyntaxError("Cannot assign a keyword as a value")
+                else:
+                    if self.current_token.recognized_string == "int":
+                        self.get_next_token()
+                        if self.current_token.recognized_string == "(":
+                            self.get_next_token()
+                            if self.current_token.recognized_string == "input":
+                                self.get_next_token()
+                                if self.current_token.recognized_string == "(":
+                                    self.get_next_token()
+                                    if self.current_token.recognized_string == ")":
+                                        self.get_next_token()
+                                        if self.current_token.recognized_string == ")":
+                                            self.get_next_token()
+                                            if self.current_token.recognized_string == ";":
+                                                self.quad.genquad("in","input","_","_");
+                                                self.get_next_token()
+                                            else:
+                                                raise SyntaxError(f"Missing ; in line {self.current_token.current_line}")
+                                        else:
+                                            raise SyntaxError(f"Expected ) but found {self.current_token.family} in line {self.current_token.current_line}")
+                                    else:
+                                        raise SyntaxError(f"Expected ) but found {self.current_token.family} in line {self.current_token.current_line}")
+                                else:
+                                    raise SyntaxError(f"Expected ( but found {self.current_token.family} in line {self.current_token.current_line}")
+                            else:
+                                raise SyntaxError(f"Expected input but found {self.current_token.family} in line {self.current_token.current_line}")
+                        else:
+                            raise SyntaxError(f"Expected ( but found {self.current_token.family} in line {self.current_token.current_line}")
+                    else:
+                        self.get_next_token()
+                        if self.current_token.recognized_string == ";":
+                            self.get_next_token()
+                        else:
+                            self.expression()
+                        
+
+
+
 
     def return_stat(self):
-        self.match("Keywords")
-        self.match("GroupSymbols")
-        self.expression()
-        self.match("GroupSymbols")
+        if self.current_token.recognized_string == "return":
+            self.get_next_token()
+            if self.current_token.recognized_string == "(":
+                self.get_next_token()
+                self.expression()
+                if self.current_token.recognized_string == ")":
+                    self.get_next_token()
+                    if self.current_token.recognized_string == ";":
+                        self.get_next_token()
+                    else:
+                        raise SyntaxError(f"Missing ; in line" + self.current_token.current_line)
+                else:
+                    raise SyntaxError(f"Expected ) but found " + self.current_token.family + "in line" + self.current_token.current_line)
+            else:
+                raise SyntaxError(f"Expected ( but found " + self.current_token.family + "in line" + self.current_token.current_line)
+        else:
+            raise SyntaxError(f"Expected return statement but found " + self.current_token.family + "in line" + self.current_token.current_line)
 
     def print_stat(self):
-        self.match("Keywords")
-        self.match("GroupSymbols")
-        self.expression()
-        self.match("GroupSymbols")
+        if self.current_token.recognized_string == "print":
+            self.get_next_token()
+            if self.current_token.recognized_string == "(":
+                self.get_next_token()
+                self.expression()
+                if self.current_token.recognized_string == ")":
+                    self.get_next_token()
+                    if self.current_token.recognized_string == ";":
+                        self.quad.genquad("out","_","_","_")
+                        self.get_next_token()
+                    else:
+                        raise SyntaxError(f"Missing ; in line" + self.current_token.current_line)
+                else:
+                    raise SyntaxError(f"Expected ) but found " + self.current_token.family + "in line" + self.current_token.current_line)
+            else:
+                raise SyntaxError(f"Expected ( but found " + self.current_token.family + "in line" + self.current_token.current_line)
+        else:
+            raise SyntaxError(f"Expected print statement but found " + self.current_token.family + "in line" + self.current_token.current_line)
 
     def if_stat(self):
-        if self.current_token.recognized_string == "if":
-            self.match("Keywords")
-            if not self.match('GroupSymbols'):
-                raise SyntaxError("Expected '(' after 'if'.")
-            self.condition()
-            if not self.match("GroupSymbols"):
-                raise SyntaxError("Expected ')' after condition.")
-            if not self.match("Delimeters"):
-                raise SyntaxError("Expected ':' after condition.")
-            if self.current_token.recognized_string == "#{":
-                self.match("GroupSymbols")
-                self.statements()
-                if not self.match("GroupSymbols"):
-                    raise SyntaxError("Expected '#}' after conditions.")
-            else:
-                self.statement()
-        if self.current_token.recognized_string == "else":
-                    self.match("Keywords")
-                    if not self.match("Delimeters"):
-                        raise SyntaxError("Expected ':' after 'else'.")
-                    if self.current_token.recognized_string == "#{":
-                        self.match("GroupSymbols")
-                        self.statements()
-                        if not self.match("GroupSymbols"):
-                            raise SyntaxError("Expected '#}' after conditions.")
+        B = []
+        statements_bool = False
+        if (self.current_token.recognized_string == "if"):
+            self.get_next_token()
+            if (self.current_token.recognized_string == "("):
+                self.get_next_token()
+                B = self.condition()
+                if (self.current_token.recognized_string == ")"):
+                    BTrue = B[0]
+                    BFalse = B[1]
+                    self.quad.backpatch(BTrue,self.quad.nextquad())
+                    self.get_next_token()
+                    if (self.current_token.recognized_string == ":"):
+                        self.get_next_token()
+                        if (self.current_token.recognized_string == "#{"):
+                            statements_bool = True
+                            self.get_next_token()
+                            self.statements()
+                            ifList = self.quad.makeList(self.quad.nextQuad())
+                            self.quad.genQuad('jump','_','_','_')
+                            self.quad.backpatch(BFalse,self.quad.nextquad())
+                            if (self.current_token.recognized_string == "#}"):
+                                if (statements_bool == True):
+                                    statements_bool = False
+                                    self.get_next_token()
+                                else:
+                                    raise SyntaxError(f"Incomplete statement block" + "in line" + self.current_token.current_line)
+                            else:
+                                raise SyntaxError(f"Expected" + "#} but found " +self.current_token.family + "in line" + self.current_token.current_line)
+                        else:
+                            self.statement()
                     else:
-                        self.statement()
+                        raise SyntaxError(f"Expected :, but found " +self.current_token.family+ "in line" + self.current_token.current_line)
+                else:
+                    raise SyntaxError(f"Expected ), but found " +self.current_token.family+ "in line" + self.current_token.current_line)     
+            else:
+                raise SyntaxError(f"Expected ( but found " +self.current_token.family+ "in line" + self.current_token.current_line)   
+
+        if (self.current_token.recognized_string == "else"):
+            self.quad.backpatch(BFalse,self.quad.nextquad())
+            self.quad.backpatch(ifList,self.quad.nextquad())
+            self.get_next_token()
+            if (self.current_token.recognized_string == ":"):
+                self.get_next_token()
+                if (self.current_token.recognized_string == "#{"):
+                    statements_bool = True
+                    self.get_next_token()
+                    self.statements()
+                    if (self.current_token.recognized_string == "#}"):
+                        if (statements_bool == True):
+                            statements_bool = False
+                            self.get_next_token()
+                        else:
+                            raise SyntaxError(f"Incomplete statement block" + "in line" + self.current_token.current_line)
+                    else:
+                        raise SyntaxError(f"Expected" + "#} but found " +self.current_token.family + "in line" + self.current_token.current_line)
+                else:
+                    self.statement()
+            else:
+                raise SyntaxError(f"Expected :, but found " +self.current_token.family+ "in line" + self.current_token.current_line)
 
     def call_main_part(self):
+        
         if self.current_token.recognized_string == "if":
-            self.match("Keyword")
+            self.get_next_token()
             if self.current_token.recognized_string == "__name__":
-                self.match("Name")
+                self.get_next_token()
                 if self.current_token.recognized_string == "==":
-                    self.match("RelOperators")
+                    self.get_next_token()
                     if self.current_token.family == "Main":
-                        self.match("Main")
+                        self.get_next_token()
                         if self.current_token.recognized_string == ":":
-                            self.match("Delimeters")
+                            self.get_next_token()
                             while self.current_token.family == "ID":
                                 self.main_function_call()
                         else:
                             raise SyntaxError("Expected ':' but found something else.")
 
     def main_function_call(self):
-        self.match("ID")
-        self.match("GroupSymbols")
-        self.match("GroupSymbols")
-        self.match("Delimeters")
+        l.debug("...Matching ID")
+        if (self.current_token.family == "ID"):
+            self.get_next_token()
+            l.debug("...Matching GroupSymbols")
+            if (self.current_token.recognized_string == "("):
+                self.get_next_token()
+                l.debug("...Matching GroupSymbols")
+                if (self.current_token.recognized_string == ")"):
+                    self.get_next_token()
+
+                    l.debug("...Matching Delimiters")
+                    if (self.current_token.recognized_string == ":"):
+                        self.get_next_token()
+                    else:
+                       raise SyntaxError(f"Expected :, but found " +self.current_token.family+ "in line" + self.current_token.current_line)
+                else:
+                    raise SyntaxError(f"Expected ), but found " +self.current_token.family+ "in line" + self.current_token.current_line)     
+            else:
+                raise SyntaxError(f"Expected ( but found " +self.current_token.family+ "in line" + self.current_token.current_line)   
+        else:
+            raise SyntaxError(f"Expected ID, but found " + self.current_token.family+ "in line" + self.current_token.current_line) 
 
     def while_stat(self):
-        self.match('Keywords')
-        if not self.match("GroupSymbols"):
-            raise SyntaxError("Expected '(' after 'while'.")
-        self.condition()
-        if not self.match("GroupSymbols"):
-            raise SyntaxError("Expected ')' after condition.")
-        if not self.match("Delimeters"):
-            raise SyntaxError("Expected ':' after condition.")
-        self.statement()
+        l.debug("...Went in on while_stat with current token " + self.current_token.recognized_string)
+        statements_bool = False
+        if (self.current_token.recognized_string == "while"):
+            condQuad = self.quad.nextQuad()
+            self.get_next_token()
+            if (self.current_token.recognized_string == "("):
+                self.get_next_token()
+                B = self.condition()
+                BTrue = B[0]
+                BFalse = B[1]
+                self.get_next_token()
+                if (self.current_token.recognized_string == ")"):
+                    self.quad.backpatch(BTrue,self.quad.nextQuad())
+                    self.get_next_token()
+                    if (self.current_token.recognized_string == ":"):
+                        self.get_next_token()
+                        if (self.current_token.recognized_string == "#{"):
+                            statements_bool = True
+                            self.get_next_token()
+                            self.statements()
+                            self.quad.genquad('jump','_','_',condQuad)
+                            backpatch(condition.false,nextQuad())
+                            if (self.current_token.recognized_string == "#}"):
+                                if (statements_bool == True):
+                                    statements_bool = False
+                                    self.get_next_token()
+                                else:
+                                    raise SyntaxError(f"Incomplete statement block" + "in line" + self.current_token.current_line)
+                            else:
+                                raise SyntaxError(f"Expected" + "#} but found " +self.current_token.family + "in line" + self.current_token.current_line)
+                        else:
+                            self.statements()
+                    else:
+                        raise SyntaxError(f"Expected :, but found " +self.current_token.family+ "in line" + self.current_token.current_line)
+                else:
+                    raise SyntaxError(f"Expected ), but found " +self.current_token.family+ "in line" + self.current_token.current_line)     
+            else:
+                raise SyntaxError(f"Expected ( but found " +self.current_token.family+ "in line" + self.current_token.current_line)   
 
     def id_list(self):
-        self.match("ID")
-        while self.current_token is not None and self.current_token.recognized_string == ",":
-            self.match("Delimeters")
-            self.match("ID")
+        l.debug("...Went in on id_list")
+        id_list = []
+        l.debug("...Matching ID")
+        if(self.current_token.family == "ID"):
+            id_list.append(self.current_token.recognized_string)
+            self.get_next_token()
+            while self.current_token is not None and self.current_token.recognized_string == ",":
+                self.get_next_token()
+                if (self.current_token.family == "ID"):
+                    self.get_next_token()
+                else:
+                    raise SyntaxError("Expected ID after comma.")
+
 
     def expression(self):
-        if self.current_token.family == "AddOperators":
-            self.optional_sign()
-        self.term()
+        l.debug("...Went in on expression with current token " + self.current_token.recognized_string)
+        self.optional_sign()
+        t1place = self.term()
+        l.debug("...Found term " + t1place)
         while self.current_token is not None and self.current_token.family == "AddOperators":
-            self.match("AddOperators")
+            l.debug("...Found AddOp " + self.current_token.recognized_string)
+            w = self.quad.newTemp()
+            op = self.current_token.recognized_string
+            self.get_next_token()
+            t2place = self.current_token.recognized_string
+            l.debug("...Found term " + t2place)
+            self.quad.genquad(op,t1place,t2place,w)
+            t1place = w
             self.term()
+            eplace = t1place
+        l.debug("...Returning expression " + t1place)
+        return t1place
 
     def term(self):
+        l.debug("...Went in on term with current token " + self.current_token.recognized_string)
         self.factor()
+        t1place = self.current_token.recognized_string
         while self.current_token is not None and self.current_token.family == "MulOperators":
-            self.match('MulOperators')
+            w = self.quad.newTemp()
+            op = self.current_token.recognized_string
+            self.get_next_token()
+            t2place = self.current_token.recognized_string
+            self.quad.genquad(op,t1place,t2place,w)
+            t1place = w
             self.factor()
+            self.get_next_token()
+        l.debug("...Returning term " + t1place)
+        return t1place
     
     def factor(self):
+        l.debug("...Went in on factor with current token " + self.current_token.recognized_string)
         if self.current_token.family == "Integer":
-            self.match("Integer")
+            self.get_next_token()
+
         elif self.current_token.recognized_string == "(":
-            self.match("GroupSymbols")
-            result = self.expression()
-            self.match("GroupSymbols")
-            return result
+            self.get_next_token()
+            self.expression()
+            if self.current_token.recognized_string == ")":
+                self.get_next_token()
+                if self.current_token.recognized_string == ";":
+                    self.get_next_token()
+                else:
+                    raise SyntaxError(f"Expected ';', found " + self.current_token.recognized_string)
+            else:
+                raise SyntaxError("Expected ')' but found something else.")
         elif self.current_token.family == "ID":
-            id_token = self.match("ID")
-            self.idtail(id_token)
-        else:
-            raise SyntaxError(f"Expected integer or '(', found {self.current_token.recognized_string}")
+            self.idtail()
 
     def idtail(self):
+        l.debug("...Went in on idtail with current token " + self.current_token.recognized_string)
         if self.current_token.recognized_string == "(":
-            self.match("GroupSymbols")
+            self.get_next_token()
             self.actual_par_list()
-            self.match("GroupSymbols")
+            if self.current_token.recognized_string == ")":
+                self.get_next_token()
+            else:
+                raise SyntaxError("Expected ')' but found something else.")
         else:
             pass
 
     def actual_par_list(self):
+        l.debug("...Went in on actual_par_list with current token " + self.current_token.recognized_string)
         self.expression()
         if self.current_token.recognized_string == "(":
             self.expression()
             while self.current_token.recognized_string == ",":
-                self.match("Delimeters")
+                self.get_next_token()
                 self.expression()
         else:
             pass
 
     def optional_sign(self):
+        l.debug("...Went in on optional_sign with current token " + self.current_token.recognized_string)
         if self.current_token.family == "AddOperators":
-            self.match("AddOperators")
+            l.debug("...Found this AddOperator: " + self.current_token.recognized_string)
+            self.get_next_token()
         else:
+            l.debug("...No sign found, returning")
             pass
 
+   
     def condition(self):
-        self.bool_term()
+        B = []
+        l.debug("...Went in on condition with current token " + self.current_token.recognized_string)
+        B = self.bool_term()
         while self.current_token.recognized_string == "or":
-            self.match("Keywords")
-            self.bool_term()
+            Btrue = B[0]
+            Bfalse = B[1]
+            self.quad.backpatch(Bfalse,self.quad.nextQuad())
+            self.get_next_token()
+            l.debug("...Found another contidion, calling bool_term again with current token " + self.current_token.recognized_string)
+            B = self.bool_term()
+            Q2True = B[0]
+            Q2False = B[1]
+            Bfalse = self.quad.mergeList(Bfalse,Q2false)
+            Btrue = Q2true
+
+            B = []
+            B.append(BTrue)
+            B.append(BFalse)
+
+        return B
 
     def bool_term(self):
-        self.bool_factor()
+        B = []
+        l.debug("...Went in on bool_term with current token " + self.current_token.recognized_string)
+        B = self.bool_factor()
         while self.current_token.recognized_string == "and":
-            self.match("Keywords")
-            self.bool_factor()
+            Btrue = B[0]
+            Bfalse = B[1]
+            self.quad.backpatch(Btrue,self.quad.nextQuad())
+            self.get_next_token()
+            l.debug("...Found another bool term, calling bool_factor again with current token " + self.current_token.recognized_string)
+            B = self.bool_factor()
+            Q2True = B[0]
+            Q2False = B[1]
+            Bfalse = self.quad.mergeList(Bfalse,Q2false)
+            Btrue = Q2true
+
+            B = []
+            B.append(BTrue)
+            B.append(BFalse)
+
+        return B
 
     def bool_factor(self):
+
+        B = []
+        l.debug("...Went in on bool_factor with current token " + self.current_token.recognized_string)
         if self.current_token.recognized_string == "not":
-            self.match("Keywords")
-            self.match("GroupSymbols")
-            self.condition()
-            self.match("GroupSymbols")
+            self.get_next_token()
+            if self.current_token.recognized_string == "(":
+                self.get_next_token()
+                B = self.condition()
+                if self.current_token.recognized_string == ")":
+                    Btrue = B[1]
+                    Bfalse = B[0]
+                    self.get_next_token()
+
+                    B = []
+                    B.append(BTrue)
+                    B.append(BFalse)
+                    return B
+                else:
+                    raise SyntaxError("Expected ')' but found something else.")
+            else:
+                raise SyntaxError("Expected '(' but found something else.")
         elif self.current_token.recognized_string == "[":
-            self.match("GroupSymbols")
-            self.condition()
-            self.match("GroupSymbols")
+            self.get_next_token()
+            B = self.condition()
+            if self.current_token.recognized_string == "]":
+                Btrue = B[0]
+                Bfalse = B[1]
+                self.get_next_token()
+                B = []
+                B.append(BTrue)
+                B.append(BFalse)
+                return B
+            else:
+                raise SyntaxError("Expected ']' but found something else.")
+        
         else:
-            self.expression()
-            self.match("RelOperators")
-            self.expression()
+            E1place = self.expression()
+            self.get_next_token()
+            if self.current_token.family == "RelOperators":
+                B = []
+                rel_op = self.current_token.recognized_string
+                l.debug("...Found a RelOperator: " + self.current_token.recognized_string + " , getting next token and finding next expression")
+                self.get_next_token()
+                E2place = self.expression()
+                BTrue = self.quad.makeList(self.quad.nextQuad())
+                self.quad.genquad(rel_op,E1place,E2place,"_")
+                BFalse = self.quad.makeList(self.quad.nextQuad())
+                self.quad.genquad("jump","_","_","_")
+                B.append(BTrue)
+                B.append(BFalse)
+                return B
+                
 
 
+class Quad:
+    def __init__(self, operator, operand1, operand2, operand3, quad_num):
+        self.operator = operator
+        self.operand1 = operand1
+        self.operand2 = operand2
+        self.operand3 = operand3
+        self.quad_num = quad_num
+
+
+    def nextQuad(self):
+        global quadnum
+        quadnum += 1
+        l.debug("...nextQuad called. The next generated quad will have no. " + str(quadnum))
+        return quadnum - 1
+
+    def genquad(self,operator, operand1, operand2, operand3):
+        qnum = self.nextQuad()
+        l.debug("Generating quad " + str(qnum) + ": " + operator + ", " + operand1 + ", " + operand2 + ", " + operand3)
+        q = Quad(quadnum, operator, operand1, operand2, operand3)
+        quadList.append(q)
+
+    def newTemp(self):
+        global temp_counter
+        temp = "%" + str(temp_counter)
+        temp_counter += 1
+        l.debug("...Creating new temp " + temp)
+        return temp
+
+    def emptyList(self):
+        l = list()
+        return l
+
+    def makeList(self,label):
+        l = list(str(label))
+        return l
+
+    def mergeList(list1, list2):
+        if list1 is None: 
+            return list2
+        if list2 is None:
+            return list1
+        merged_list = list1 + list2
+        return merged_list
+
+    def backpatch(self,list,label):
+        for q in list:
+            if q.op[3] == "_":
+                q.op[3] = str(label)
+
+class Variable: 
+    def __init__(self, name, datatype, offset):
+        self.name = name
+        self.datatype = datatype
+        self.offset = offset
+
+class Parameter: 
+    def __init__(self, name, datatype, mode, offset):
+        self.name = name
+        self.datatype = datatype
+        self.mode = mode
+        self.offset = offset
+
+class FormalParameter: 
+    def __init__(self, datatype, mode):
+        self.datatype = datatype
+        self.mode = mode
+
+class Procedure:
+        def __init__(self, name, startingQuad, framelength, formalParameters):
+            self.name = name
+            self.startingQuad = startingQuad
+            self.framelength = framelength
+            self.formalParameters = formalParameters
+
+class Function:
+        def __init__(self, name, datatype, startingQuad, framelength, formalParameters):
+            self.name = name
+            self.datatype = datatype
+            self.startingQuad = startingQuad
+            self.framelength = framelength
+            self.formalParameters = formalParameters
+
+class TemporaryVariable: 
+    def __init__(self, name, datatype, offset):
+        self.name = name
+        self.datatype = datatype
+        self.offset = offset
+
+class SymbolicConstant: 
+    def __init__(self, name, offset):
+        self.name = name
+        self.offset = offset
 
 def main():
     if len(sys.argv) < 2:
         print("Usage: python main.py <filename>")
         return
-
+    
+    l.basicConfig(level=l.DEBUG)
     filename = sys.argv[1]
 
     parser = Parser(filename)
+    
+    
     result = parser.parse()
-
+    
     if result:
         print("Compilation successful!")
     else:
@@ -561,4 +1003,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
